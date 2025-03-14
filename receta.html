@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Receta Médica</title>
+    
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container py-4">
+    <div class="row">
+        <!-- Formulario -->
+        <div class="col-md-5">
+            <div class="card shadow">
+                <div class="card-body">
+                    <h2 class="text-success mb-4">Agregar Receta Médica</h2>
+                    <form id="form-receta">
+                        <div class="mb-3">
+                            <label for="medicamento" class="form-label">Medicamento:</label>
+                            <input type="text" class="form-control" id="medicamento" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="dosis" class="form-label">Cada cuántas horas:</label>
+                            <input type="number" class="form-control" id="dosis" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="duracion" class="form-label">Duración (en días):</label>
+                            <input type="number" class="form-control" id="duracion" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="horaInicio" class="form-label">Hora de inicio:</label>
+                            <input type="time" class="form-control" id="horaInicio" required>
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100">Guardar Receta</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de horarios con acordeón -->
+        <div class="col-md-7">
+            <h2 class="text-success mb-4">Lista de Medicamentos</h2>
+            <div class="accordion" id="lista-medicamentos"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', cargarRecetas);
+
+    const formReceta = document.getElementById('form-receta');
+    const listaMedicamentos = document.getElementById('lista-medicamentos');
+
+    // ✅ Guardar receta
+    formReceta.addEventListener('submit', (e) => {
+        e.preventDefault();
+
+        const medicamento = document.getElementById('medicamento').value;
+        const dosis = parseInt(document.getElementById('dosis').value);
+        const duracion = parseInt(document.getElementById('duracion').value);
+        const horaInicio = document.getElementById('horaInicio').value;
+
+        const receta = generarReceta(medicamento, dosis, duracion, horaInicio);
+        guardarReceta(receta);
+        mostrarRecetas();
+
+        formReceta.reset();
+    });
+
+    // ✅ Generar horarios de receta
+    function generarReceta(medicamento, dosis, duracion, horaInicio) {
+        let horarios = [];
+        let fechaInicio = new Date();
+        let [hora, minutos] = horaInicio.split(':').map(Number);
+        fechaInicio.setHours(hora);
+        fechaInicio.setMinutes(minutos);
+
+        let totalTomas = (duracion * 24) / dosis;
+
+        for (let i = 0; i < totalTomas; i++) {
+            let toma = new Date(fechaInicio.getTime() + i * dosis * 60 * 60 * 1000);
+            horarios.push({
+                fecha: toma.toLocaleDateString(),
+                hora: toma.toLocaleTimeString(),
+                completado: false
+            });
+        }
+
+        return {
+            medicamento,
+            horarios
+        };
+    }
+
+    // ✅ Guardar receta en localStorage
+    function guardarReceta(receta) {
+        let recetas = JSON.parse(localStorage.getItem('recetas')) || [];
+        recetas.push(receta);
+        localStorage.setItem('recetas', JSON.stringify(recetas));
+    }
+
+    // ✅ Mostrar recetas en acordeón
+    function mostrarRecetas() {
+        listaMedicamentos.innerHTML = '';
+        let recetas = JSON.parse(localStorage.getItem('recetas')) || [];
+
+        recetas.forEach((receta, index) => {
+            let acordeon = `
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="heading-${index}">
+                        <button class="accordion-button collapsed bg-success text-white" type="button" 
+                            data-bs-toggle="collapse" data-bs-target="#collapse-${index}" aria-expanded="false">
+                            ${receta.medicamento}
+                        </button>
+                    </h2>
+                    <div id="collapse-${index}" class="accordion-collapse collapse">
+                        <div class="accordion-body">
+                            <ul class="list-group">
+                                ${receta.horarios.map((toma, i) => `
+                                    <li class="list-group-item d-flex align-items-center">
+                                        <input type="checkbox" class="form-check-input me-2" 
+                                            data-index="${index}" data-toma="${i}" ${toma.completado ? 'checked' : ''}>
+                                        <span>${toma.fecha} - ${toma.hora}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                            <button class="btn btn-danger mt-3 w-100" onclick="eliminarReceta(${index})">
+                                Eliminar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            listaMedicamentos.innerHTML += acordeon;
+        });
+
+        // Abre automáticamente el último acordeón agregado
+        if (recetas.length > 0) {
+            setTimeout(() => {
+                const lastIndex = recetas.length - 1;
+                const lastCollapse = document.getElementById(`collapse-${lastIndex}`);
+                const lastButton = document.querySelector(`[data-bs-target="#collapse-${lastIndex}"]`);
+
+                const collapse = new bootstrap.Collapse(lastCollapse, {
+                    toggle: true
+                });
+
+                lastButton.classList.remove('collapsed');
+                lastButton.setAttribute('aria-expanded', 'true');
+            }, 100);
+        }
+    }
+
+    // ✅ Eliminar receta
+    function eliminarReceta(index) {
+        let recetas = JSON.parse(localStorage.getItem('recetas')) || [];
+        recetas.splice(index, 1);
+        localStorage.setItem('recetas', JSON.stringify(recetas));
+        mostrarRecetas();
+    }
+
+    // ✅ Marcar como completado
+    listaMedicamentos.addEventListener('change', (e) => {
+        if (e.target.type === 'checkbox') {
+            let recetas = JSON.parse(localStorage.getItem('recetas')) || [];
+            let recetaIndex = e.target.getAttribute('data-index');
+            let tomaIndex = e.target.getAttribute('data-toma');
+            recetas[recetaIndex].horarios[tomaIndex].completado = e.target.checked;
+            localStorage.setItem('recetas', JSON.stringify(recetas));
+        }
+    });
+
+    // ✅ Cargar recetas al iniciar
+    function cargarRecetas() {
+        mostrarRecetas();
+    }
+</script>
+
+</body>
+</html>
